@@ -21,7 +21,8 @@ import org.orekit.forces.gravity.potential.NormalizedSphericalHarmonicsProvider;
 import org.orekit.frames.Frame;
 import org.orekit.frames.FramesFactory;
 import org.orekit.models.earth.atmosphere.Atmosphere;
-import org.orekit.models.earth.atmosphere.HarrisPriester;
+import org.orekit.models.earth.atmosphere.DTM2000;
+import org.orekit.models.earth.atmosphere.data.MarshallSolarActivityFutureEstimation;
 import org.orekit.orbits.CartesianOrbit;
 import org.orekit.orbits.Orbit;
 import org.orekit.propagation.SpacecraftState;
@@ -38,18 +39,19 @@ import org.orekit.utils.PVCoordinatesProvider;
 public class TestProgramm {
 
 	public static void main(String[] args) {
+
 		System.setProperty( org.orekit.data.DataProvidersManager.OREKIT_DATA_PATH , TestProgramm.class.getResource("/orekit-data").getPath());
 		File orekitData = new File(TestProgramm.class.getResource("/orekit-data").getPath());
 		DataContext.getDefault().getDataProvidersManager().addProvider(new DirectoryCrawler(orekitData));
 
         GravityFieldFactory.clearPotentialCoefficientsReaders();
-        GravityFieldFactory.addPotentialCoefficientsReader(new ICGEMFormatReader("eigen-6s-truncated", true));
-        NormalizedSphericalHarmonicsProvider  hprov = GravityFieldFactory.getNormalizedProvider(20, 20);
+        GravityFieldFactory.addPotentialCoefficientsReader(new ICGEMFormatReader("eigen-6s.gfc", true));
+        NormalizedSphericalHarmonicsProvider  hprov = GravityFieldFactory.getNormalizedProvider(36, 36);
         
 		
 
 		PVCoordinatesProvider sun = CelestialBodyFactory.getSun();
-		Frame ITRFFrame = FramesFactory.getITRF(IERSConventions.IERS_2010, false);
+		Frame ITRFFrame = FramesFactory.getPZ9011(IERSConventions.IERS_2010, false);
 		OneAxisEllipsoid earth = new OneAxisEllipsoid(Constants.WGS84_EARTH_EQUATORIAL_RADIUS, Constants.WGS84_EARTH_FLATTENING, ITRFFrame);
 		Frame inertialFrame = FramesFactory.getEME2000();
 		TimeScale utc = TimeScalesFactory.getUTC();
@@ -78,20 +80,31 @@ public class TestProgramm {
 		NumericalPropagator propagator = new NumericalPropagator(integrator);
 	
 		SpacecraftState state = new SpacecraftState(initialOrbit,400);
-		Atmosphere atmosphere = new HarrisPriester(sun,earth);
-		DragSensitive dragsens = new IsotropicDrag(1,1);
+		
+		
+		MarshallSolarActivityFutureEstimation msafe =
+                new MarshallSolarActivityFutureEstimation("Sep2015F10\\.txt",
+                                                          MarshallSolarActivityFutureEstimation.StrengthLevel.AVERAGE);
+		
+		Atmosphere atmosphere = new DTM2000(msafe,  sun,earth);
+		DragSensitive dragsens = new IsotropicDrag(4,10);
 		DragForce df = new DragForce(atmosphere, dragsens);
 		propagator.addForceModel(df);
 		propagator.addForceModel((new ThirdBodyAttraction(CelestialBodyFactory.getSun())));
 		propagator.addForceModel((new ThirdBodyAttraction(CelestialBodyFactory.getMoon())));
 		propagator.addForceModel(new HolmesFeatherstoneAttractionModel(earth.getBodyFrame(), hprov));
 		propagator.setInitialState(state);
-		NodeDetector nodeDetector =  new NodeDetector(initialOrbit, inertialFrame) 
+		NodeDetector nodeDetector =  new NodeDetector(initialOrbit, ITRFFrame) 
 		{
+			int orbitNumber = 2762;
 		@Override
 		public Action eventOccurred(SpacecraftState s, boolean increasing) {
-			System.out.println(s.getPVCoordinates(ITRFFrame));
-
+			if (increasing)
+			{
+			System.out.println(orbitNumber++);
+			System.out.println("ИСК:"+s.getPVCoordinates());
+			System.out.println("ГСК:"+s.getPVCoordinates(ITRFFrame));
+			}
 
 			return Action.CONTINUE;
 		
