@@ -7,6 +7,7 @@ import org.hipparchus.ode.events.Action;
 import org.hipparchus.ode.nonstiff.AdaptiveStepsizeIntegrator;
 import org.hipparchus.ode.nonstiff.DormandPrince853Integrator;
 import org.orekit.bodies.CelestialBodyFactory;
+import org.orekit.bodies.GeodeticPoint;
 import org.orekit.bodies.OneAxisEllipsoid;
 import org.orekit.data.DataContext;
 import org.orekit.data.DirectoryCrawler;
@@ -65,7 +66,7 @@ public class TestProgramm {
 
 		PVCoordinates coordsECEF =  new PVCoordinates(new Vector3D(-5213.56894604261*1e3,-4503.69735468414*1e3,2.07433845478278E-06*1e3) , new Vector3D(-0.96642490779325*1e3,1.13339627279594*1e3,7.54405377145847*1e3));
 		PVCoordinates coordsECI =  ITRFFrame.getTransformTo(inertialFrame, initialDate).transformPVCoordinates(coordsECEF);
-		GeodeticPoint gp =earth.transform(coordsECEF, ITRFFrame, initialDate);
+		GeodeticPoint gp =earth.transform(coordsECEF.getPosition(), ITRFFrame, initialDate);
 		Orbit initialOrbit  = new CartesianOrbit(coordsECI, inertialFrame, initialDate, org.orekit.utils.Constants.WGS84_EARTH_MU);
 
 		// steps limits
