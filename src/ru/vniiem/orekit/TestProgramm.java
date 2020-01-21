@@ -26,8 +26,11 @@ import org.orekit.models.earth.atmosphere.data.MarshallSolarActivityFutureEstima
 import org.orekit.orbits.CartesianOrbit;
 import org.orekit.orbits.Orbit;
 import org.orekit.propagation.SpacecraftState;
+import org.orekit.propagation.events.AbstractDetector;
+import org.orekit.propagation.events.EventDetector;
 import org.orekit.propagation.events.NodeDetector;
 import org.orekit.propagation.numerical.NumericalPropagator;
+import org.orekit.propagation.sampling.OrekitFixedStepHandler;
 import org.orekit.time.AbsoluteDate;
 import org.orekit.time.TimeScale;
 import org.orekit.time.TimeScalesFactory;
@@ -62,7 +65,7 @@ public class TestProgramm {
 
 		PVCoordinates coordsECEF =  new PVCoordinates(new Vector3D(-5213.56894604261*1e3,-4503.69735468414*1e3,2.07433845478278E-06*1e3) , new Vector3D(-0.96642490779325*1e3,1.13339627279594*1e3,7.54405377145847*1e3));
 		PVCoordinates coordsECI =  ITRFFrame.getTransformTo(inertialFrame, initialDate).transformPVCoordinates(coordsECEF);
-		
+		GeodeticPoint gp =earth.transform(coordsECEF, ITRFFrame, initialDate);
 		Orbit initialOrbit  = new CartesianOrbit(coordsECI, inertialFrame, initialDate, org.orekit.utils.Constants.WGS84_EARTH_MU);
 
 		// steps limits
@@ -111,9 +114,18 @@ public class TestProgramm {
 			return Action.CONTINUE;
 		
 		}};
-		
+
 		propagator.addEventDetector(nodeDetector);
 
+
+		propagator.setMasterMode(30, new OrekitFixedStepHandler() {
+			
+			@Override
+			public void handleStep(SpacecraftState currentState, boolean isLast) {
+				System.out.println(currentState.getPVCoordinates());
+				
+			}
+		});
 		state =  propagator.propagate(initialDate, new AbsoluteDate(2020, 01, 22, 23, 30, 00.000, utc));
 		
 	
