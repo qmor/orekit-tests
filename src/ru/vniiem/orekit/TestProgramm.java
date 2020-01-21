@@ -38,6 +38,9 @@ import org.orekit.utils.PVCoordinatesProvider;
 
 public class TestProgramm {
 
+
+	
+	
 	public static void main(String[] args) {
 
 		System.setProperty( org.orekit.data.DataProvidersManager.OREKIT_DATA_PATH , TestProgramm.class.getResource("/orekit-data").getPath());
@@ -51,25 +54,25 @@ public class TestProgramm {
 		
 
 		PVCoordinatesProvider sun = CelestialBodyFactory.getSun();
-		Frame ITRFFrame = FramesFactory.getPZ9011(IERSConventions.IERS_2010, false);
+		Frame ITRFFrame = FramesFactory.getPZ9011(IERSConventions.IERS_2010 , false);
 		OneAxisEllipsoid earth = new OneAxisEllipsoid(Constants.WGS84_EARTH_EQUATORIAL_RADIUS, Constants.WGS84_EARTH_FLATTENING, ITRFFrame);
 		Frame inertialFrame = FramesFactory.getEME2000();
 		TimeScale utc = TimeScalesFactory.getUTC();
-		AbsoluteDate initialDate = new AbsoluteDate(2020, 01, 15, 5, 48, 6.040199, utc);
+		AbsoluteDate initialDate = new AbsoluteDate(2020, 01, 19, 21, 24, 26.142101, utc);
 
-		PVCoordinates coordsECEF =  new PVCoordinates(new Vector3D(-5289.96557749084*1e3,4874.19375146585*1e3,1.38048303911114E-06*1e3) , new Vector3D(1.11523635903974*1e3,1.19878728646838*1e3,7.36257620859274*1e3));
+		PVCoordinates coordsECEF =  new PVCoordinates(new Vector3D(-5213.56894604261*1e3,-4503.69735468414*1e3,2.07433845478278E-06*1e3) , new Vector3D(-0.96642490779325*1e3,1.13339627279594*1e3,7.54405377145847*1e3));
 		PVCoordinates coordsECI =  ITRFFrame.getTransformTo(inertialFrame, initialDate).transformPVCoordinates(coordsECEF);
 		
 		Orbit initialOrbit  = new CartesianOrbit(coordsECI, inertialFrame, initialDate, org.orekit.utils.Constants.WGS84_EARTH_MU);
 
 		// steps limits
 		
-		final double minStep  = 0.001;
-		final double maxStep  = 1000;
+		final double minStep  = 0.0001;
+		final double maxStep  = 30;
 		final double initStep = 30;
 
 		// error control parameters (absolute and relative)
-		final double positionError = 1.0;
+		final double positionError = 0.1;
 		final double[][] tolerances = NumericalPropagator.tolerances(positionError, initialOrbit, initialOrbit.getType());
 
 		// set up mathematical integrator
@@ -79,15 +82,14 @@ public class TestProgramm {
 		// set up space dynamics propagator
 		NumericalPropagator propagator = new NumericalPropagator(integrator);
 	
-		SpacecraftState state = new SpacecraftState(initialOrbit,400);
+		SpacecraftState state = new SpacecraftState(initialOrbit,600);
 		
 		
 		MarshallSolarActivityFutureEstimation msafe =
-                new MarshallSolarActivityFutureEstimation("Sep2015F10\\.txt",
-                                                          MarshallSolarActivityFutureEstimation.StrengthLevel.AVERAGE);
+                new MarshallSolarActivityFutureEstimation("Sep2015F10\\.txt", MarshallSolarActivityFutureEstimation.StrengthLevel.STRONG);
 		
 		Atmosphere atmosphere = new DTM2000(msafe,  sun,earth);
-		DragSensitive dragsens = new IsotropicDrag(4,10);
+		DragSensitive dragsens = new IsotropicDrag(2,3);
 		DragForce df = new DragForce(atmosphere, dragsens);
 		propagator.addForceModel(df);
 		propagator.addForceModel((new ThirdBodyAttraction(CelestialBodyFactory.getSun())));
@@ -96,7 +98,7 @@ public class TestProgramm {
 		propagator.setInitialState(state);
 		NodeDetector nodeDetector =  new NodeDetector(initialOrbit, ITRFFrame) 
 		{
-			int orbitNumber = 2762;
+			int orbitNumber = 41583;
 		@Override
 		public Action eventOccurred(SpacecraftState s, boolean increasing) {
 			if (increasing)
@@ -112,7 +114,7 @@ public class TestProgramm {
 		
 		propagator.addEventDetector(nodeDetector);
 
-		state =  propagator.propagate(initialDate, new AbsoluteDate(2020, 01, 16, 23, 30, 00.000, utc));
+		state =  propagator.propagate(initialDate, new AbsoluteDate(2020, 01, 22, 23, 30, 00.000, utc));
 		
 	
 	
