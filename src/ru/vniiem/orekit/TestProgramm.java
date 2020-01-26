@@ -1,11 +1,13 @@
 package ru.vniiem.orekit;
 
 import java.io.File;
+import java.util.TimeZone;
 
 import org.hipparchus.geometry.euclidean.threed.Vector3D;
 import org.hipparchus.ode.events.Action;
 import org.hipparchus.ode.nonstiff.AdaptiveStepsizeIntegrator;
 import org.hipparchus.ode.nonstiff.DormandPrince853Integrator;
+import org.hipparchus.util.FastMath;
 import org.orekit.bodies.CelestialBodyFactory;
 import org.orekit.bodies.GeodeticPoint;
 import org.orekit.bodies.OneAxisEllipsoid;
@@ -21,13 +23,22 @@ import org.orekit.forces.gravity.potential.ICGEMFormatReader;
 import org.orekit.forces.gravity.potential.NormalizedSphericalHarmonicsProvider;
 import org.orekit.frames.Frame;
 import org.orekit.frames.FramesFactory;
+import org.orekit.frames.TopocentricFrame;
+import org.orekit.geometry.fov.FieldOfView;
+import org.orekit.geometry.fov.PolygonalFieldOfView;
+import org.orekit.geometry.fov.PolygonalFieldOfView.DefiningConeType;
 import org.orekit.models.earth.atmosphere.Atmosphere;
 import org.orekit.models.earth.atmosphere.DTM2000;
 import org.orekit.models.earth.atmosphere.data.MarshallSolarActivityFutureEstimation;
 import org.orekit.orbits.CartesianOrbit;
 import org.orekit.orbits.Orbit;
 import org.orekit.propagation.SpacecraftState;
+import org.orekit.propagation.events.ElevationDetector;
+import org.orekit.propagation.events.EventDetector;
+import org.orekit.propagation.events.EventsLogger;
+import org.orekit.propagation.events.GroundFieldOfViewDetector;
 import org.orekit.propagation.events.NodeDetector;
+import org.orekit.propagation.events.handlers.EventHandler;
 import org.orekit.propagation.numerical.NumericalPropagator;
 import org.orekit.propagation.sampling.OrekitFixedStepHandler;
 import org.orekit.time.AbsoluteDate;
@@ -98,6 +109,21 @@ public class TestProgramm {
 		propagator.addForceModel((new ThirdBodyAttraction(CelestialBodyFactory.getMoon())));
 		propagator.addForceModel(new HolmesFeatherstoneAttractionModel(earth.getBodyFrame(), hprov));
 		propagator.setInitialState(state);
+		
+		
+		
+		  GeodeticPoint station101 = new GeodeticPoint(FastMath.toRadians(55.74485373889), FastMath.toRadians(37.729730825), 0.1929733*10e3);
+	      TopocentricFrame topo101 = new TopocentricFrame(earth, station101, "station101");
+		
+		ElevationDetector ed = new ElevationDetector(topo101).withConstantElevation(FastMath.toRadians(7));
+
+		ed = ed.withHandler(new EventHandler<EventDetector>() {
+			@Override
+			public Action eventOccurred(SpacecraftState s, EventDetector detector, boolean increasing) {
+				System.out.println("ElevationDetector "+s.getDate().toString(TimeZone.getTimeZone("GMT+3"))+" "+increasing);
+				return Action.CONTINUE;
+			}
+		});
 		NodeDetector nodeDetector =  new NodeDetector(initialOrbit, ITRFFrame) 
 		{
 			int orbitNumber = 5969;
@@ -106,8 +132,8 @@ public class TestProgramm {
 			if (increasing)
 			{
 			System.out.println(orbitNumber++);
-			System.out.println("ИСК:"+s.getPVCoordinates());
-			System.out.println("ГСК:"+s.getPVCoordinates(ITRFFrame));
+			System.out.println("ИСК:"+s.getPVCoordinates().getDate().toString(TimeZone.getTimeZone("GMT+3"))+" "+s.getPVCoordinates().getPosition());
+			System.out.println("ГСК:"+s.getPVCoordinates().getDate().toString(TimeZone.getTimeZone("GMT+3"))+" "+s.getPVCoordinates(ITRFFrame).getPosition());
 			System.out.println(String.format("SMA %f I %f", s.getA() , Math.toDegrees(s.getI()) ));
 			System.out.println(String.format("Period %f E %f", s.getKeplerianPeriod()/60.0 , Math.toDegrees(s.getE()) ));
 			}
@@ -116,8 +142,31 @@ public class TestProgramm {
 		
 		}};
 
-		propagator.addEventDetector(nodeDetector);
+		//construct similar FoV based detector
+        //half width of 60 deg pointed along +Z in antenna frame
+        //not a perfect small circle b/c FoV makes a polygon with great circles
+        FieldOfView fov =
+                new PolygonalFieldOfView(Vector3D.PLUS_K,
+                                         DefiningConeType.INSIDE_CONE_TOUCHING_POLYGON_AT_EDGES_MIDDLE,
+                                         Vector3D.PLUS_I, FastMath.PI / 3, 16, 0);
 
+        //simple case for fixed pointing to be similar to elevation detector.
+        //could define new frame with varying rotation for slewing antenna.
+        GroundFieldOfViewDetector fovDetector =  new GroundFieldOfViewDetector(topo101, fov)
+                        .withMaxCheck(5.0).withHandler(new EventHandler<EventDetector>() {
+                        	@Override
+                        	public Action eventOccurred(SpacecraftState s, EventDetector detector, boolean increasing) {
+                    			System.out.println("fovDetector "+s.getDate().toString(TimeZone.getTimeZone("GMT+3"))+" "+increasing);
+                        		return Action.CONTINUE; 
+                        	}
+						});
+
+      
+        propagator.addEventDetector(fovDetector);
+		
+		
+		propagator.addEventDetector(nodeDetector);
+		propagator.addEventDetector(ed);
 
 		propagator.setMasterMode(30, new OrekitFixedStepHandler() {
 			
