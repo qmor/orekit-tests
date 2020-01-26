@@ -1,6 +1,5 @@
+/orekit-data/
+/GOST_R_25645_166_2004/
 /org/
 /ru/
-/UTC-TAI.history
-/orekit-data/
-/assets/
-/egm96_to5.ascii
+bin/
